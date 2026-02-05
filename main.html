@@ -131,9 +131,25 @@ function drawBoard(){
 		c.onclick=()=>clickCell(x,y);
 		boardEl.appendChild(c);
 	}
-	statusEl.textContent=turn==="w"?"White to move":"Black thinking…";
 }
 
+/* ================= GAME OVER CHECK ================= */
+function checkGameOver(color){
+	const moves=allMoves(board,color);
+	if(moves.length>0)return false;
+
+	gameOver=true;
+	if(kingInCheck(board,color)){
+		statusEl.textContent=color==="w"
+			? "Checkmate! Black wins"
+			: "Checkmate! White wins";
+	}else{
+		statusEl.textContent="Stalemate! Draw";
+	}
+	return true;
+}
+
+/* ================= INPUT ================= */
 function clickCell(x,y){
 	if(gameOver||turn!=="w")return;
 	const p=board[y][x];
@@ -141,6 +157,7 @@ function clickCell(x,y){
 		if(possibleMoves.some(m=>m.x===x&&m.y===y)){
 			saveState();
 			applyMove(board,{x1:selected.x,y1:selected.y,x2:x,y2:y});
+			if(checkGameOver("b")){ drawBoard(); return; }
 			turn="b";
 			setTimeout(aiMove,150);
 		}
@@ -154,10 +171,7 @@ function clickCell(x,y){
 
 /* ================= HISTORY ================= */
 function saveState(){
-	history.push({
-		board:clone(board),
-		turn,whiteTime,blackTime
-	});
+	history.push({board:clone(board),turn,whiteTime,blackTime});
 }
 
 function undoMove(){
@@ -184,10 +198,12 @@ function aiMove(){
 	if(!bestMoves.length){gameOver=true;return;}
 	saveState();
 	applyMove(board,bestMoves[Math.random()*bestMoves.length|0]);
+	if(checkGameOver("w")){ drawBoard(); return; }
 	turn="w";
 	drawBoard();
 }
 
+/* ================= MINIMAX ================= */
 function minimax(b,depth,max){
 	if(depth===0)return evaluate(b);
 	const color=max?"b":"w";
@@ -195,16 +211,14 @@ function minimax(b,depth,max){
 	if(max){
 		let v=-Infinity;
 		for(const m of moves){
-			const b2=clone(b);
-			applyMove(b2,m);
+			const b2=clone(b);applyMove(b2,m);
 			v=Math.max(v,minimax(b2,depth-1,false));
 		}
 		return v;
 	}else{
 		let v=Infinity;
 		for(const m of moves){
-			const b2=clone(b);
-			applyMove(b2,m);
+			const b2=clone(b);applyMove(b2,m);
 			v=Math.min(v,minimax(b2,depth-1,true));
 		}
 		return v;
@@ -283,8 +297,7 @@ function clearLine(b,x1,y1,x2,y2){
 	let x=x1+dx,y=y1+dy;
 	while(x!==x2||y!==y2){
 		if(x<0||x>7||y<0||y>7)return false;
-		if(!b[y])return false;
-		if(b[y][x])return false;
+		if(!b[y]||b[y][x])return false;
 		x+=dx;y+=dy;
 	}
 	return true;
